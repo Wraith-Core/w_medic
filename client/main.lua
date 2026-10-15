@@ -810,7 +810,10 @@ RegisterNetEvent('hospital:client:Revive', function()
     local player = PlayerPedId()
     local playerId = PlayerId()
 
-    if isDead or InLaststand then
+    -- ★ 2026-10-15: also a dead ped this resource has not flagged yet (the watcher polls every 250 ms,
+    --   and skips while another resurrect runs): healing a dead body without resurrecting it left
+    --   the player dead with full health and the death camera on screen
+    if isDead or InLaststand or IsEntityDead(player) then
         local pos = GetEntityCoords(player, true)
         resurrect(pos, GetEntityHeading(player))
         player = PlayerPedId() -- the appearance restore may have replaced the ped
