@@ -77,38 +77,21 @@ local function targetRankOptions(data, d)
     return options
 end
 
-local function doctorMenu(data, d)
+-- ★ The rows carry event names, not functions (2026-10-16): the context menu lives in w_lib, and
+--   only names cross the export boundary (the library's contract; a function reference dies with a
+--   restart of this resource). The handlers are local client events at the end of this section;
+--   they act on `current`, the list the menus were built from, and the server checks everything again.
+local UI = 'w_medic:jobs:ui:'
+local current = nil
+
+local function doctorMenu(data, index)
+    local d = data.doctors[index]
     local options = {}
-    local ranks = targetRankOptions(data, d)
-    if #ranks > 0 then
-        options[#options + 1] = {
-            title = locale('jobs.change_rank'),
-            description = d.label,
-            onSelect = function()
-                local input = w.inputDialog(d.name, {
-                    { type = 'select', label = locale('jobs.rank'), options = ranks, required = true },
-                })
-                if not input then return openCenter() end
-                tell(w.callback.await('w_medic:jobs:setRank', false, d.charId, tonumber(input[1])), 'jobs.done_rank')
-                openCenter()
-            end,
-        }
+    if #targetRankOptions(data, d) > 0 then
+        options[#options + 1] = { title = locale('jobs.change_rank'), description = d.label, event = UI .. 'rank', args = index }
     end
     if d.fire then
-        options[#options + 1] = {
-            title = locale('jobs.fire'),
-            onSelect = function()
-                local answer = w.alertDialog({
-                    header = locale('jobs.fire'),
-                    content = locale('jobs.fire_confirm', d.name),
-                    centered = true,
-                    cancel = true,
-                })
-                if answer ~= 'confirm' then return openCenter() end
-                tell(w.callback.await('w_medic:jobs:fire', false, d.charId), 'jobs.done_fire')
-                openCenter()
-            end,
-        }
+        options[#options + 1] = { title = locale('jobs.fire'), event = UI .. 'fire', args = index }
     end
     w.registerContext({ id = 'w_medic_jobs_doctor', title = d.name, menu = 'w_medic_jobs', options = options })
     w.showContext('w_medic_jobs_doctor')
@@ -117,21 +100,66 @@ end
 openCenter = function()
     local data = w.callback.await('w_medic:jobs:list', false)
     if type(data) ~= 'table' or not data.ok then return tell(data) end
+    current = data
     local options = {
-        { title = locale('jobs.hire'), description = locale('jobs.hire_desc'), onSelect = function() hireDialog(data) end },
+        { title = locale('jobs.hire'), description = locale('jobs.hire_desc'), event = UI .. 'hire' },
     }
-    for _, d in ipairs(data.doctors or {}) do
+    for i, d in ipairs(data.doctors or {}) do
         options[#options + 1] = {
             title = d.name,
             description = ('%s · %s'):format(d.label, locale(d.online and 'jobs.online' or 'jobs.offline')),
             arrow = d.touch,
             disabled = not d.touch,
-            onSelect = function() doctorMenu(data, d) end,
+            event = UI .. 'doctor',
+            args = i,
         }
     end
     w.registerContext({ id = 'w_medic_jobs', title = locale('jobs.title'), options = options })
     w.showContext('w_medic_jobs')
 end
+
+--- the doctor a row named (by its place in `current`), only while this player may use the centre
+local function picked(index)
+    if LocalPlayer.state[STATE] ~= true or type(current) ~= 'table' then return nil end
+    return (current.doctors or {})[tonumber(index)]
+end
+
+AddEventHandler(UI .. 'hire', function()
+    if LocalPlayer.state[STATE] ~= true or type(current) ~= 'table' then return end
+    hireDialog(current)
+end)
+
+AddEventHandler(UI .. 'doctor', function(index)
+    local d = picked(index)
+    if d and d.touch then doctorMenu(current, tonumber(index)) end
+end)
+
+AddEventHandler(UI .. 'rank', function(index)
+    local d = picked(index)
+    if not d then return end
+    local ranks = targetRankOptions(current, d)
+    if #ranks == 0 then return end
+    local input = w.inputDialog(d.name, {
+        { type = 'select', label = locale('jobs.rank'), options = ranks, required = true },
+    })
+    if not input then return openCenter() end
+    tell(w.callback.await('w_medic:jobs:setRank', false, d.charId, tonumber(input[1])), 'jobs.done_rank')
+    openCenter()
+end)
+
+AddEventHandler(UI .. 'fire', function(index)
+    local d = picked(index)
+    if not (d and d.fire) then return end
+    local answer = w.alertDialog({
+        header = locale('jobs.fire'),
+        content = locale('jobs.fire_confirm', d.name),
+        centered = true,
+        cancel = true,
+    })
+    if answer ~= 'confirm' then return openCenter() end
+    tell(w.callback.await('w_medic:jobs:fire', false, d.charId), 'jobs.done_fire')
+    openCenter()
+end)
 
 -- w_store fires it when the key is pressed at the pharmacist (TriggerEvent, with the store id)
 AddEventHandler(EVENT, function()
