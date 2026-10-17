@@ -80,10 +80,10 @@ Config.Pay = {
 Config.DoctorRanks = {
     [0] = { label = "  طـبـيـب مـتـدرب",   salary = 10.0,  canAccessAdmin = false },
     [1] = { label = "طـبـيـب مـتـمـرس", salary = 25.0,  canAccessAdmin = false },
-    [2] = { label = " طـبـيـب إمـتـيـاز", salary = 35.0,  canAccessAdmin = false },
+    [2] = { label = " طـبـيـب امـتـيـاز", salary = 35.0,  canAccessAdmin = false },
     [3] = { label = " دكتور",          salary = 50.0,  canAccessAdmin = false },
-    [4] = { label = " نائب وزير الصحه ", salary = 100.0, canAccessAdmin = true  },
-    [5] = { label = "وزيـر الـصـحـه",   salary = 100.0, canAccessAdmin = true  },
+    [4] = { label = " نائب وزير الصحة ", salary = 100.0, canAccessAdmin = true  },
+    [5] = { label = "وزيـر الـصـحـة",   salary = 100.0, canAccessAdmin = true  },
 }
 
 -- Timings from gw-medic (ms)
