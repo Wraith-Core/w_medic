@@ -47,6 +47,10 @@ w = { notify = function(s, d) NOTES[#NOTES + 1] = { s, d.description } end }
 function withinReach() return true end
 function refillNeeds() end
 function payDoctor() end
+-- 1.0.2: the revive also tells w_level (levelXp, keyed by downSince): both live outside the slice cut here
+downSince = {}
+LEVEL = {}
+function levelXp(src, activity, ctx, key) LEVEL[#LEVEL + 1] = { src, activity, key } end
 TREAT_REACH = 10.0
 function fire(n, s, ...) source = s NOTES, CLIENT, KITS = {}, {}, 0 return NET[n](...) end
 function revived() for _, c in ipairs(CLIENT) do if c[1] == 'hospital:client:Revive' then return true end end return false end

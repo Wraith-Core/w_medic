@@ -664,6 +664,13 @@ local function nearestRespawnPoint(src)
 	return Config.RespawnPoints[best], best
 end
 
+--- 1.0.2: XP through w_level's activity table (w_level/config/xp_rules.lua decides the amount and the caps;
+--- we only say what happened). Never yields, never throws.
+local function levelXp(src, activity, ctx, key)
+	if not src or GetResourceState('w_level') ~= 'started' then return end
+	pcall(function() exports.w_level:Award(src, activity, ctx, key) end)
+end
+
 -- ★ The death is the man's own client's word (the server reads health 0 for a living ped on this
 --   build, so it cannot check it). What the server CAN keep is the clock: when it first heard him
 --   down (last stand, then dead once he bled out). His death screen opens the respawn only after
@@ -705,6 +712,9 @@ RegisterNetEvent('hospital:server:RespawnAtHospital', function(closestBed)
 	local meta = Player and Player.PlayerData.metadata or {}
 	local down = meta.isdead == true and downLongEnough(src)
 	if down then respawnedDown[src] = GetGameTimer() end
+	-- 1.0.2: a death that ends at the hospital costs XP (w_level's table: never a level). A doctor's revive
+	-- instead costs nothing. Once per downing (the server's own clock of when he went down).
+	if down then levelXp(src, 'death', nil, ('death:%s:%s'):format(tostring(Player.PlayerData.citizenid), tostring(downSince[src] or os.time()))) end
 
 	-- ★ 2026-10-14: the nearest of the five towns (Config.RespawnPoints). Valentine has the beds; in the
 	--   other four he wakes up standing at the point, healed. That one is a teleport, so only a man
@@ -871,6 +881,7 @@ RegisterNetEvent('hospital:server:TreatWounds', function(playerId)
 	refillNeeds(Patient.PlayerData.source)
 	-- every check above has passed and the bandage is spent: the work is done, so it is paid
 	payDoctor(src, id, 'treat')
+	levelXp(src, 'doctor_treat', { target = id }) -- 1.0.2: the level (w_level's table: the same patient counts once in a while)
 end)
 
 RegisterNetEvent('hospital:server:SetDoctor', function()
@@ -913,6 +924,13 @@ RegisterNetEvent('hospital:server:RevivePlayer', function(playerId)
         if down then refillNeeds(Patient.PlayerData.source) end
         -- reach checked, kit spent, man standing: the revive happened, so it is paid
         payDoctor(src, id, 'revive')
+        -- 1.0.2: the level (w_level's table), for a man who was really down: the doctor, and the patient a little
+        -- (he was spared the hospital's loss). Once per downing.
+        if down then
+            local k = ('revive:%s:%s'):format(tostring(Patient.PlayerData.citizenid), tostring(downSince[id] or os.time()))
+            levelXp(src, 'doctor_revive', { target = id }, k)
+            levelXp(id, 'revived_by_doctor', nil, k)
+        end
     end
 end)
 
