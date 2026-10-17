@@ -1032,7 +1032,7 @@ local leavingBed = false
 local function showBedPrompt()
     if bedGroup then return end
     bedGroup = w.prompt.createGroup(locale('text.bed'), 'bottom-right')
-    bedGroup.addPrompt('E', locale('prompt.leave_bed'), false)
+    bedGroup.addPrompt('J', locale('prompt.leave_bed'), false)
     bedGroup.display()
 end
 
@@ -1046,11 +1046,11 @@ end
 function RelabelBedPrompt()
     if not bedGroup then return end
     bedGroup.setTitle(locale('text.bed'))
-    bedGroup.setLabel('E', locale('prompt.leave_bed'))
+    bedGroup.setLabel('J', locale('prompt.leave_bed'))
 end
 
 AddEventHandler('w_lib:promptCompleted', function(id, key)
-    if not bedGroup or id ~= bedGroup.id or key ~= 'E' or leavingBed then return end
+    if not bedGroup or id ~= bedGroup.id or key ~= 'J' or leavingBed then return end
     if not (isInHospitalBed and canLeaveBed) then return end
     leavingBed = true
     hideBedPrompt()

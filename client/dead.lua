@@ -48,7 +48,7 @@ end
 LogDeath = logDeath
 
 -- ── death / last stand screen prompt ─────────────────────────────────────────────────
--- One library prompt group carries the countdown as its title and the two keys: E respawns
+-- One library prompt group carries the countdown as its title and the two keys: J respawns
 -- at the hospital once the timer ran out, G calls a doctor while help is still possible.
 -- The library reads the raw keys itself, so the group works while the game controls are off.
 local deathGroup = nil
@@ -57,7 +57,7 @@ local deathState = nil      -- last title / row state pushed to the group
 local function ensureDeathGroup()
     if deathGroup then return end
     deathGroup = w.prompt.createGroup(false, 'bottom-right')
-    deathGroup.addPrompt('E', locale('prompt.respawn', Config.BillCost), false)
+    deathGroup.addPrompt('J', locale('prompt.respawn', Config.BillCost), false)
     deathGroup.addPrompt('G', locale('prompt.request_help'), false)
     deathGroup.display()
 end
@@ -81,7 +81,7 @@ local function updateDeathGroup()
     ensureDeathGroup()
 
     -- ★ 2026-10-14 (owner: "like GW"): both keys from the first second. G calls a doctor at once,
-    --   and again is refused only once he has been called; E (wake up at the doctor) shows its
+    --   and again is refused only once he has been called; J (wake up at the doctor) shows its
     --   countdown from the start and opens when the bleeding out is over. It used to show nothing
     --   for the first two minutes (G waited for MinimumRevive, E for the end of the last stand).
     local state
@@ -91,8 +91,8 @@ local function updateDeathGroup()
         state = ('dead:%d:%s:%s'):format(seconds, tostring(emsNotified), tostring(isReviving == true))
         if state ~= deathState then
             deathGroup.setTitle(seconds > 0 and locale('info.respawn_txt', seconds) or locale('info.respawn_ready'))
-            deathGroup.setVisible('E', true)
-            deathGroup.setEnabled('E', seconds <= 0 and not respawnRequested and not isReviving)
+            deathGroup.setVisible('J', true)
+            deathGroup.setEnabled('J', seconds <= 0 and not respawnRequested and not isReviving)
             -- a doctor can still revive a dead man (the server takes dead or bleeding out)
             deathGroup.setVisible('G', true)
             deathGroup.setEnabled('G', not emsNotified and not isReviving)
@@ -105,8 +105,8 @@ local function updateDeathGroup()
         if state ~= deathState then
             deathGroup.setTitle(canAsk and locale('info.bleed_out_help', seconds) or locale('info.bleed_out', seconds))
             -- the respawn opens once the bleeding out is over: shown, locked, with the countdown above
-            deathGroup.setVisible('E', true)
-            deathGroup.setEnabled('E', false)
+            deathGroup.setVisible('J', true)
+            deathGroup.setEnabled('J', false)
             deathGroup.setVisible('G', true)
             deathGroup.setEnabled('G', canAsk and not emsNotified and not isReviving)
             deathGroup.setLabel('G', emsNotified and locale('info.help_requested') or locale('prompt.request_help'))
@@ -121,14 +121,14 @@ end
 -- A language switch: the fixed label is replaced, the rest is re-pushed by the next update
 function RelabelDeathPrompt()
     if not deathGroup then return end
-    deathGroup.setLabel('E', locale('prompt.respawn', Config.BillCost))
+    deathGroup.setLabel('J', locale('prompt.respawn', Config.BillCost))
     deathState = nil
 end
 
 AddEventHandler('w_lib:promptCompleted', function(id, key)
     if not deathGroup or id ~= deathGroup.id then return end
     if isReviving then return end -- being resurrected: the downed state ends with it
-    if key == 'E' then
+    if key == 'J' then
         if respawnRequested or not isDead or deathTime > 0 or isInHospitalBed then return end
         respawnRequested = true
         deathState = nil

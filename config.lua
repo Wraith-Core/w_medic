@@ -33,7 +33,7 @@ Config.PromptDistance = 1.5
 -- Doctor next to a player: a prompt group follows the closest player within PatientDistance
 Config.PatientDistance = 2.0
 Config.PatientKeys = {
-    status = 'E',   -- check the patient's wounds
+    status = 'J',   -- check the patient's wounds (not E: E grabs the player next to you)
     treat = 'G',    -- treat the wounds (bandage, held key)
     revive = 'F',   -- revive (first aid kit, held key)
 }
