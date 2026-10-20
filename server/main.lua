@@ -995,6 +995,9 @@ local surgeryRequests = {} -- [src] = GetGameTimer() of the last request
 local function surgeryClinic(clinicId)
 	local cfg = Config.CosmeticSurgery
 	if type(cfg) ~= 'table' or not cfg.enabled or type(clinicId) ~= 'string' then return nil end
+	-- the clinics w_creators' board places (client/job.lua shows their prompts); else the config list
+	local ok, points = pcall(function() return GlobalState['w_creators:clinicPoints'] end)
+	if ok and type(points) == 'table' then return points[clinicId] end
 	for _, clinic in ipairs(cfg.clinics or {}) do
 		if clinic.clinicId == clinicId then return clinic end
 	end

@@ -184,6 +184,8 @@ Config.Locations = {
 
 -- Cosmetic surgery at the hospital stations (performed by w_creators). The station prompt asks
 -- this resource's server, which opens the clinic through exports.w_creators:OpenCosmeticSurgery;
+-- ★ 2026-10-19: the clinics are placed in game on w_creators' board (/servicesadmin), which publishes
+--   them (GlobalState 'w_creators:clinicPoints'); `clinics` below is only used while it publishes none.
 -- w_creators re-validates the service, the clinic, the distance and the price, and charges the
 -- player. clinicId = the id of a w_creators location of type 'surgery' (w_creators
 -- config/locations.lua); coords = where the prompt is shown (the w_creators clinic coords are the

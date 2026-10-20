@@ -137,6 +137,10 @@ end
 -- A clinic missing from it has no prompt; while nothing is published (an older w_creators) the
 -- prompt shows and the server's answer decides.
 local CLINICS_KEY = 'w_creators:clinics'
+-- Where the clinics are: w_creators publishes the clinics its board (/servicesadmin) places as
+-- GlobalState[CLINIC_POINTS_KEY] = { [clinicId] = { x, y, z } }. While nothing is published (an older
+-- w_creators) Config.CosmeticSurgery.clinics is the list. A change rebuilds the surgery prompts.
+local CLINIC_POINTS_KEY = 'w_creators:clinicPoints'
 
 local function clinicOpen(clinicId)
     local ok, published = pcall(function() return GlobalState[CLINICS_KEY] end)
@@ -148,11 +152,28 @@ local function surgeryAvailable(clinicId)
     return isUpright() and GetResourceState('w_creators') == 'started' and clinicOpen(clinicId)
 end
 
-local function addSurgeryPrompts()
+--- The clinics: the published points (`points`, or GlobalState's), else the config list.
+local function surgeryClinics(cfg, points)
+    if points == nil then
+        local ok, published = pcall(function() return GlobalState[CLINIC_POINTS_KEY] end)
+        points = ok and published or nil
+    end
+    if type(points) ~= 'table' then return type(cfg.clinics) == 'table' and cfg.clinics or {} end
+    local list = {}
+    for clinicId, c in pairs(points) do
+        if type(clinicId) == 'string' and type(c) == 'table' and tonumber(c.x) and tonumber(c.y) and tonumber(c.z) then
+            list[#list + 1] = { clinicId = clinicId, coords = vector3(c.x + 0.0, c.y + 0.0, c.z + 0.0) }
+        end
+    end
+    table.sort(list, function(a, b) return a.clinicId < b.clinicId end)
+    return list
+end
+
+local function addSurgeryPrompts(points)
     local cfg = Config.CosmeticSurgery
-    if type(cfg) ~= 'table' or not cfg.enabled or type(cfg.clinics) ~= 'table' then return end
+    if type(cfg) ~= 'table' or not cfg.enabled then return end
     local key = cfg.key or Config.PromptKey
-    for _, clinic in ipairs(cfg.clinics) do
+    for _, clinic in ipairs(surgeryClinics(cfg, points)) do
         local clinicId, c = clinic.clinicId, clinic.coords
         if type(clinicId) == 'string' and c then
             local rec = w.prompt.at({
@@ -169,6 +190,7 @@ local function addSurgeryPrompts()
             })
             stationPrompts[#stationPrompts + 1] = {
                 rec = rec,
+                surgery = true,
                 relabel = function()
                     rec.setTitle(locale('text.surgery'))
                     rec.setLabel(key, locale('prompt.cosmetic_surgery'))
@@ -177,6 +199,22 @@ local function addSurgeryPrompts()
         end
     end
 end
+
+local function removeSurgeryPrompts()
+    local kept = {}
+    for _, entry in ipairs(stationPrompts) do
+        if entry.surgery then entry.rec.remove() else kept[#kept + 1] = entry end
+    end
+    stationPrompts = kept
+end
+
+-- The staff moved, added or removed a clinic on w_creators' board: the surgery prompts follow. Before
+-- the station prompts are built nothing is done (createAmbuPrompts reads the list then).
+AddStateBagChangeHandler(CLINIC_POINTS_KEY, 'global', function(_, _, value)
+    if #stationPrompts == 0 then return end
+    removeSurgeryPrompts()
+    addSurgeryPrompts(type(value) == 'table' and value or false)
+end)
 
 function createAmbuPrompts()
     if #stationPrompts > 0 then return end
