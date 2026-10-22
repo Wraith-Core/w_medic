@@ -1610,12 +1610,32 @@ end
 
 exports('RevivePlayer', RevivePlayer)
 exports('HealPlayer', HealPlayer)
+--- Is this player still in his bed? A stay ends when his client leaves the bed (LeaveBed), but a player
+--- revived by an admin, teleported or flying out never sends it: a bed far behind him is released here, or
+--- the stay never ended -- IsDead stayed true, so heists said "not in this state" and w_creators refused a
+--- character switch until he logged out (2026-10-23).
+local BED_LEFT = 40.0 -- beyond the check-in desk's reach (BED_REACH 25 m): only someone who really left
+local function inBed(src)
+	src = tonumber(src)
+	local id = src and bedBySrc[src]
+	if not id then return false end
+	local ped = GetPlayerPed(src)
+	if ped and ped ~= 0 and Config.Locations["beds"][id] then
+		local c = Config.Locations["beds"][id].coords
+		if #(GetEntityCoords(ped) - vector3(c.x, c.y, c.z)) > BED_LEFT then
+			releaseBed(src)
+			return false
+		end
+	end
+	return true
+end
+
 -- dead, in last stand, or in a hospital bed (w_creators refuses a character switch meanwhile)
 exports('IsDead', function(playerId)
 	local dead, laststand = isDownState(playerId)
-	return dead or laststand or bedBySrc[tonumber(playerId)] ~= nil
+	return dead or laststand or inBed(playerId)
 end)
 
 exports('InHospitalBed', function(playerId)
-	return bedBySrc[tonumber(playerId)] ~= nil
+	return inBed(playerId)
 end)
