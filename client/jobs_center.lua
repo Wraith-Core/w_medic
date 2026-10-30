@@ -59,11 +59,15 @@ local function hireDialog(data)
     local options = rankOptions(data.ranks)
     if #options == 0 then return w.notify({ description = locale('jobs.err_rank_too_high'), type = 'error' }) end
     local input = w.inputDialog(locale('jobs.hire'), {
-        { type = 'number', label = locale('jobs.server_id'), required = true, min = 1 },
+        { type = 'input', label = locale('jobs.citizen_id'), required = true },
         { type = 'select', label = locale('jobs.rank'), options = options, required = true },
     })
     if not input then return openCenter() end
-    tell(w.callback.await('w_medic:jobs:hire', false, tonumber(input[1]), tonumber(input[2])), 'jobs.done_hire')
+    local preview = w.callback.await('w_medic:jobs:previewHire', false, input[1], tonumber(input[2]))
+    if type(preview) ~= 'table' or not preview.ok then tell(preview, 'jobs.done_hire'); return openCenter() end
+    local answer = w.alertDialog({ header = locale('jobs.hire'), content = locale('jobs.confirm_hire', preview.name, preview.label), cancel = true })
+    if answer ~= 'confirm' then return openCenter() end
+    tell(w.callback.await('w_medic:jobs:hire', false, preview.citizenid, tonumber(input[2]), preview.citizenid), 'jobs.done_hire')
     openCenter()
 end
 

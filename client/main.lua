@@ -753,7 +753,7 @@ end
 RegisterNetEvent('hospital:client:ambulanceAlert', function(coords, text)
     -- `text` is a dictionary key (info.civ_down) or free text from /911e: locale() returns
     -- unknown strings unchanged, so the doctor reads the alert in his own language.
-    text = locale(text)
+    text = type(text) == 'table' and locale(text.key, table.unpack(text.args or {})) or locale(text)
     -- One notice (title + description) instead of two back-to-back toasts; 'ambulance' was
     -- never a notify variant, so the alert uses 'inform' and gets the library's default styling.
     WCore.Functions.Notify({ text = locale('text.alert'), caption = text }, 'inform')
