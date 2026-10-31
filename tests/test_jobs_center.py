@@ -34,6 +34,7 @@ def run_checks():
         lua.execute(src("config.lua"))
         lua.execute(r"""
         setmetatable(_G, nil)
+    function IsPlayerAceAllowed() return false end
         local V = {} V.__index = V
         V.__sub = function(a, b) return setmetatable({ x = a.x - b.x, y = a.y - b.y, z = a.z - b.z }, V) end
         V.__len = function(a) return math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z) end

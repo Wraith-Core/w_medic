@@ -34,6 +34,7 @@ def run_checks():
     lua.execute(src("config.lua"))
     lua.execute(r"""
     setmetatable(_G, nil)
+    function IsPlayerAceAllowed() return false end
     CHARS = {
       [1] = { job = 'doctor', grade = 3, label = 'الـمـارشـال' },
       [2] = { job = 'doctor', grade = 1, label = 'طـبـيـب مـتـدرب ' },

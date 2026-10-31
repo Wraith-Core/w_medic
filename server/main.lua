@@ -1377,7 +1377,8 @@ end
 
 local function isAdminSrc(src)
 	local ok, admin = pcall(function() return exports.w_lib:IsAdmin(src) end)
-	return ok and admin == true
+	if ok and admin == true then return true end
+	return IsPlayerAceAllowed(src, 'w_medic.admin') == true
 end
 
 --- nil, or what he may do: { admin = bool, grade = his doctor grade or nil, charId }
