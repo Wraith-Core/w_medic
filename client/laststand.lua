@@ -73,12 +73,15 @@ RegisterNetEvent('hospital:client:UseFirstAid', function()
         if player then
             local playerId = GetPlayerServerId(player)
             TriggerServerEvent('hospital:server:UseFirstAid', playerId)
+        else
+            WCore.Functions.Notify(locale('error.no_player'), 'error')
         end
     else
-        WCore.Functions.Notify(locale('error.impossible'), 'error')
+        WCore.Functions.Notify(locale('error.first_aid_escorting'), 'error')
     end
 end)
 
+-- 1.0.7: the helper is told why first aid does not apply ('dead' = he needs reviving, 'not_down' = not hurt)
 RegisterNetEvent('hospital:client:CanHelp', function(helperId)
     if InLaststand then
         if LaststandTime <= 300 then
@@ -87,7 +90,7 @@ RegisterNetEvent('hospital:client:CanHelp', function(helperId)
             TriggerServerEvent('hospital:server:CanHelp', helperId, false)
         end
     else
-        TriggerServerEvent('hospital:server:CanHelp', helperId, false)
+        TriggerServerEvent('hospital:server:CanHelp', helperId, false, isDead and 'dead' or 'not_down')
     end
 end)
 

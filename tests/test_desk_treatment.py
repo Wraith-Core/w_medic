@@ -70,7 +70,8 @@ def run_checks():
     
     lua, g, log = run(True, CHECKIN, doctors=5)
     g.CheckIn()
-    check("with doctors on duty no complaint", log["notices"] == [], str(log["notices"]))
+    # 1.0.7: no complaint, only "the doctors were told" (the desk used to stay silent)
+    check("with doctors on duty no complaint", log["notices"] == ["info.help_requested"], str(log["notices"]))
     
     print("\n--- and nobody is healed by the machine either ---")
     def bed_call(doctor, onduty, owner=None, bedId=1, isRevive=True):

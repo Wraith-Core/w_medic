@@ -698,6 +698,8 @@ function CheckIn()
         -- patient is not put in a bed, because a bed is what used to do the treating.
         if doctorCount <= 0 then
             WCore.Functions.Notify(locale('error.doctors_only'), 'error')
+        else
+            WCore.Functions.Notify(locale('info.help_requested'), 'inform') -- 1.0.7: the patient is told too
         end
         TriggerServerEvent("hospital:server:SendDoctorAlert")
         return
@@ -736,6 +738,8 @@ function LieInBed()
     if Config.OnlyTouchedByDoctors ~= false then
         if doctorCount <= 0 then
             WCore.Functions.Notify(locale('error.doctors_only'), 'error')
+        else
+            WCore.Functions.Notify(locale('info.help_requested'), 'inform') -- 1.0.7: the patient is told too
         end
         TriggerServerEvent("hospital:server:SendDoctorAlert")
         return

@@ -493,7 +493,7 @@ WCore.Commands.Add('pharmacy', 'the pharmacy cabinet', {
     local sub = (args[1] or 'list'):lower()
 
     if sub == 'seed' then
-        if not Config.Pharmacy.enabled then return w.notify(src, { description = 'error.impossible', type = 'error' }) end
+        if not Config.Pharmacy.enabled then return w.notify(src, { description = 'error.pharmacy_down', type = 'error' }) end
         ensureStoreShelves()
         w.notify(src, { description = 'success.pharmacy_seeded', type = 'success' })
 
@@ -1018,15 +1018,20 @@ RegisterNetEvent('hospital:server:UseFirstAid', function(targetId)
 	local Target = WCore.Functions.GetPlayer(targetId)
 	if Target then
 		TriggerClientEvent('hospital:client:CanHelp', targetId, src)
+	else
+		w.notify(src, { description = 'error.no_player', type = 'error' })
 	end
 end)
 
-RegisterNetEvent('hospital:server:CanHelp', function(helperId, canHelp)
+-- 1.0.7: why first aid does not apply, from the patient's client (a closed list: nothing else is shown)
+local CANT_HELP = { dead = 'error.cant_help_dead', not_down = 'error.cant_help_not_down' }
+
+RegisterNetEvent('hospital:server:CanHelp', function(helperId, canHelp, why)
 	local src = source
 	if canHelp then
 		TriggerClientEvent('hospital:client:HelpPerson', helperId, src)
 	else
-		w.notify(helperId, { description = 'error.cant_help', type = 'error' })
+		w.notify(helperId, { description = CANT_HELP[why] or 'error.cant_help', type = 'error' })
 	end
 end)
 
