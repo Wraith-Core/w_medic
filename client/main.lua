@@ -173,6 +173,28 @@ local function resurrect(pos, heading)
     isReviving = reviving > 0
 end
 
+-- ★ 2026-11-11 (owner): "I died, revived myself from the menu, and the player neither moves nor
+--   stands up". A revive could leave the ped lying in its death / ragdoll pose with nothing to get it
+--   up, or still dead when w_creators refused the resurrect (another one in flight that never came).
+--   After a revive of a downed player: a ped still dead after a short wait gets the native, then it is
+--   unfrozen and its tasks cleared, which puts it on its feet with its controls back.
+local STANDUP_WAIT_MS = 5000
+
+local function standUp()
+    local deadline = GetGameTimer() + STANDUP_WAIT_MS
+    while playerDown() and GetGameTimer() < deadline do Wait(100) end
+    local ped = PlayerPedId()
+    if playerDown() then
+        local pos = GetEntityCoords(ped, true)
+        NetworkResurrectLocalPlayer(pos.x, pos.y, pos.z, GetEntityHeading(ped), true, false)
+        reloadAppearance()
+        ped = PlayerPedId()
+    end
+    FreezeEntityPosition(ped, false)
+    ClearPedTasksImmediately(ped)
+    return ped
+end
+
 local function GetAvailableBed(bedId)
     local pos = GetEntityCoords(PlayerPedId())
     local retval = nil
@@ -821,6 +843,8 @@ RegisterNetEvent('hospital:client:Revive', function()
         local pos = GetEntityCoords(player, true)
         resurrect(pos, GetEntityHeading(player))
         player = PlayerPedId() -- the appearance restore may have replaced the ped
+        -- (a bed stay lays him down itself just below)
+        if not isInHospitalBed then player = standUp() end
         isDead = false
         SetEntityInvincible(player, false)
         SetLaststand(false)
