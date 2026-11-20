@@ -2,7 +2,7 @@
 --- cash through w_lib's framework bridge (VORP: currency 0 = cash). VORP's removeCurrency subtracts
 --- without looking, so the balance is read first and nothing is taken that is not there.
 local function bankUp()
-    return GetResourceState('w_centralbank') == 'started' and exports.w_centralbank:IsReady()
+    return exports.w_lib:EconName() == 'w_centralbank' and exports.w_lib:EconIsReady()
 end
 local function cashOf(src)
     local ok, money = pcall(function() return exports.w_lib:FwGetMoney(src) end)
@@ -29,8 +29,8 @@ end
 local function payHospital(player)
     if not player then return false end
     if bankUp() then
-        if not exports.w_centralbank:EnsureAccount('society:doctor', 'doctor', 'society') then return false end
-        return exports.w_centralbank:Transfer('player:' .. player.PlayerData.citizenid .. ':bank', 'society:doctor', Config.BillCost, 'hospital-bill')
+        if not exports.w_lib:EconEnsureAccount('society:doctor', 'doctor', 'society') then return false end
+        return exports.w_lib:EconTransfer('player:' .. player.PlayerData.citizenid .. ':bank', 'society:doctor', Config.BillCost, 'hospital-bill')
     end
     local paid = takeCash(player.PlayerData.source, Config.BillCost)
     if paid > 0 then
@@ -60,8 +60,8 @@ local function payDoctor(src, patientId, kind)
     if not amount or amount <= 0 then return false end
     local ok
     if bankUp() then
-        if not exports.w_centralbank:EnsureAccount('society:doctor', 'doctor', 'society') then return false end
-        ok = exports.w_centralbank:Transfer('society:doctor', 'player:' .. Doctor.PlayerData.citizenid .. ':bank', amount,
+        if not exports.w_lib:EconEnsureAccount('society:doctor', 'doctor', 'society') then return false end
+        ok = exports.w_lib:EconTransfer('society:doctor', 'player:' .. Doctor.PlayerData.citizenid .. ':bank', amount,
             ('doctor-%s:%s:%s:%s'):format(kind, Patient.PlayerData.citizenid, src, GetGameTimer())) == true
     else
         ok = giveCash(src, amount)
@@ -101,11 +101,11 @@ CreateThread(function()
     local n = 0
     while not bankUp() and n < 60 do Wait(1000) n = n + 1 end
     if not bankUp() then return end
-    local ok, balance = pcall(function() return exports.w_centralbank:GetBalance('society:ambulance') end)
+    local ok, balance = pcall(function() return exports.w_lib:EconGetBalance('society:ambulance') end)
     balance = ok and tonumber(balance) or 0
     if balance <= 0 then return end
-    if not exports.w_centralbank:EnsureAccount('society:doctor', 'doctor', 'society') then return end
-    local moved, err = exports.w_centralbank:Transfer('society:ambulance', 'society:doctor', balance,
+    if not exports.w_lib:EconEnsureAccount('society:doctor', 'doctor', 'society') then return end
+    local moved, err = exports.w_lib:EconTransfer('society:ambulance', 'society:doctor', balance,
         'w_ambulancejob account -> w_medic', 'w_medic:migrate:society:ambulance')
     print(('[w_medic] society:ambulance -> society:doctor: %s %.2f%s'):format(
         moved and 'moved' or 'not moved', balance, moved and '' or (' (' .. tostring(err) .. ')')))
@@ -357,7 +357,7 @@ local function setupPharmacy()
         return false, 'store'
     end
     local bag = activeBag()
-    if bag ~= 'w_inventory' or GetResourceState('w_inventory') ~= 'started' then
+    if bag ~= 'w_inventory' or not exports.w_lib:InvReady() then
         if bag then print(('[w_medic] pharmacy: %s has no runtime shop API, serving the cabinet by hand'):format(bag)) end
         return false, 'handout'
     end
@@ -372,13 +372,13 @@ local function setupPharmacy()
     end
     if #shelf == 0 then return false, 'empty' end
     local ok, err = pcall(function()
-        exports.w_inventory:RegisterShop(cfg.shopId, {
+        return exports.w_lib:InvRegisterShop(cfg.shopId, {
             label = Config.Items.label,
             groups = cfg.groups,
             inventory = shelf,
         })
     end)
-    if not ok then
+    if not ok or err == false then
         print(('[w_medic] the pharmacy could not be registered: %s'):format(tostring(err)))
         return false, 'handout'
     end
@@ -820,7 +820,7 @@ end)
 
 -- A character logging out (w_core's Logout, also a w_creators character switch) or a player
 -- dropping leaves his bed.
-AddEventHandler('WCore:Server:OnPlayerUnload', function(src)
+exports.w_lib:FwOnCharacterUnloaded(function(src)
     releaseBed(tonumber(src) or src)
 end)
 
@@ -1453,13 +1453,8 @@ end
 --- The job set on a player in the game. w_lib's FwSetJob is silent on VORP (no change events),
 --- so the change is announced here: the label rule above, the duty, the client and w_logs hear it.
 local function setJobOnline(src, job, grade, label)
-	local oldJob, oldGrade = fwc('GetJob', src), tonumber(fwc('GetJobGrade', src)) or 0
 	if fwc('SetJob', src, job, grade) ~= true then return false end
 	fwc('SetJobLabel', src, label)
-	if GetResourceState('vorp_core') == 'started' then
-		TriggerEvent('vorp:playerJobChange', src, job, oldJob)
-		TriggerEvent('vorp:playerJobGradeChange', src, grade, oldGrade)
-	end
 	return true
 end
 
@@ -1508,8 +1503,8 @@ w.callback.register('w_medic:jobs:list', function(src)
 			add(fwc('GetCharacterIdentifier', id), ('%s %s'):format(fwc('GetFirstName', id) or '', fwc('GetLastName', id) or ''), fwc('GetJobGrade', id), true)
 		end
 	end
-	if GetResourceState('vorp_core') == 'started' then
-		local rows = MySQL.query.await('SELECT `charidentifier`, `firstname`, `lastname`, `jobgrade` FROM `characters` WHERE `job` = ?', { 'doctor' }) or {}
+	if fwc('Name') == 'vorp' then
+		local rows = fwc('CharacterRows', 'job', 'doctor') or {}
 		for _, r in ipairs(rows) do add(r.charidentifier, ('%s %s'):format(r.firstname or '', r.lastname or ''), r.jobgrade, false) end
 	end
 	table.sort(doctors, function(a, b)
@@ -1557,8 +1552,9 @@ local function jobsTarget(access, charId)
 	local job, grade, identifier
 	if online then
 		job, grade = fwc('GetJob', online), tonumber(fwc('GetJobGrade', online)) or 0
-	elseif GetResourceState('vorp_core') == 'started' then
-		local row = MySQL.single.await('SELECT `identifier`, `job`, `jobgrade` FROM `characters` WHERE `charidentifier` = ? LIMIT 1', { charId })
+	elseif fwc('Name') == 'vorp' then
+		local rows = fwc('CharacterRows', 'citizenid', charId) or {}
+		local row = rows[1]
 		if not row then return nil, 'no_player' end
 		job, grade, identifier = row.job, tonumber(row.jobgrade) or 0, row.identifier
 	else
@@ -1622,16 +1618,8 @@ local function fixDoctorLabelSoon(src)
 	end)
 end
 
-AddEventHandler('vorp:SelectedCharacter', function(src) fixDoctorLabelSoon(src) end)
-AddEventHandler('vorp:playerJobChange', function(src) fixDoctorLabelSoon(src) end)
-AddEventHandler('vorp:playerJobGradeChange', function(src) fixDoctorLabelSoon(src) end)
--- The Wraith Core announces the same moments under its own names: a character loaded, a job or a
--- grade changed. Without these the jobs centre key only reached who was online when this started.
-AddEventHandler('WCore:Server:PlayerLoaded', function(Player)
-	local src = type(Player) == 'table' and Player.PlayerData and Player.PlayerData.source
-	if src then fixDoctorLabelSoon(src) end
-end)
-AddEventHandler('WCore:Server:OnJobUpdate', function(src) fixDoctorLabelSoon(src) end)
+exports.w_lib:FwOnCharacterLoaded(function(src) fixDoctorLabelSoon(src) end)
+exports.w_lib:FwOnJobUpdate(function(src) fixDoctorLabelSoon(src) end)
 -- an admin rank given or taken (w_core's staff ranks) opens or closes the jobs centre for him
 AddEventHandler('w_core:ranks:changed', function()
 	SetTimeout(1500, function()

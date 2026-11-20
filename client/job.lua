@@ -84,7 +84,7 @@ end
 
 local function toggleDuty()
     onDuty = not onDuty
-    TriggerServerEvent('WCore:ToggleDuty')
+    exports.w_lib:FwToggleDuty()
 end
 
 -- In a wagon the key stores it, on foot it opens the wagon menu of this yard
@@ -335,12 +335,12 @@ RegisterNetEvent('ambulance:client:TakeOutVehicle', function(data)
     TakeOutVehicle(vehicle)
 end)
 
-RegisterNetEvent('WCore:Client:OnJobUpdate', function(JobInfo)
-    PlayerJob = JobInfo
+exports.w_lib:FwOnJobUpdate(function(JobInfo)
+    PlayerJob = JobInfo or {}
     TriggerServerEvent("hospital:server:SetDoctor")
 end)
 
-RegisterNetEvent('WCore:Client:OnPlayerLoaded', function()
+exports.w_lib:FwOnCharacterLoaded(function()
     exports.spawnmanager:setAutoSpawn(false)
     local ped = PlayerPedId()
     local player = PlayerId()
@@ -397,8 +397,8 @@ CreateThread(function()
     createAmbuPrompts()
 end)
 
-RegisterNetEvent('WCore:Client:SetDuty', function(duty)
-    onDuty = duty
+exports.w_lib:FwOnDutyChange(function(duty)
+    onDuty = duty == true
     TriggerServerEvent("hospital:server:SetDoctor")
 end)
 

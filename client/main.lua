@@ -137,9 +137,7 @@ end
 --- its position, so a patient laid in a bed right after keeps his pose.
 --- ★ 2026-10-14 (owner): "a revive reloads the skin, so his limbs come back whole".
 local function reloadAppearance()
-    if GetResourceState('vorp_character') ~= 'started' then return end
-    Wait(200) -- as VORP's own revive: the resurrected ped settles first
-    TriggerEvent('vorpcharacter:reloadafterdeath')
+    pcall(function() exports.w_lib:FwReloadAppearance() end)
 end
 
 local function resurrect(pos, heading)
@@ -1022,7 +1020,7 @@ RegisterNetEvent('hospital:client:adminHeal', function()
     ResetAll() -- the needs: refilled by the server with /aheal and the HealPlayer export
 end)
 
-RegisterNetEvent('WCore:Client:OnPlayerUnload', function()
+exports.w_lib:FwOnCharacterUnloaded(function()
     local ped = PlayerPedId()
 
     TriggerServerEvent("hospital:server:SetDeathStatus", false)

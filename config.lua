@@ -743,9 +743,192 @@ Config.Weapons = {
 
 ---------------------------------------------
 
--- The core object: the Wraith Core's when w_core runs. On VORP / RSG / QBR the job's calls
--- (WCore.Functions.*, WCore.Commands.Add) are served by server/wcore_shim.lua and
--- c/wcore_shim.lua through w_lib, which load right after this file.
--- ★ 2026-10-14: the bridge used to stand inline here, and nothing of the job worked under it on
---   VORP (see the header of server/wcore_shim.lua).
-WCore = w.framework:getCoreObject()
+local NOTIFY_TYPES = { primary = 'inform', info = 'inform', inform = 'inform', success = 'success', error = 'error', warning = 'warning' }
+
+WCore = {
+    Shared = {
+        GetWeapon = function(weapon)
+            if not weapon then return nil end
+            local ok, def = pcall(function() return exports.w_lib:FwGetSharedWeapon(weapon) end)
+            if ok and type(def) == 'table' then return def end
+            return nil
+        end,
+    },
+    Functions = {},
+    Commands = {},
+}
+
+if IsDuplicityVersion() then
+    local function wrapPlayer(pd, isOffline)
+        if type(pd) ~= 'table' or (not pd.citizenid and not pd.source) then return nil end
+        local src = pd.source
+        local cid = pd.citizenid
+        return {
+            PlayerData = pd,
+            Functions = {
+                SetMetaData = function(key, val)
+                    pd.metadata = pd.metadata or {}
+                    pd.metadata[key] = val
+                    if isOffline or not src then
+                        return exports.w_lib:FwSetOfflineMetadata(cid, { [key] = val })
+                    end
+                    return exports.w_lib:FwSetMetadata(src, key, val)
+                end,
+                RemoveItem = function(item, amount, slot)
+                    if isOffline or not src then return false end
+                    return exports.w_lib:InvRemoveItem(src, item, amount or 1, nil, slot)
+                end,
+                ClearInventory = function()
+                    if isOffline or not src then return false end
+                    return exports.w_lib:FwClearInventory(src)
+                end,
+                Save = function()
+                    if isOffline or not src then return true end
+                    return exports.w_lib:FwSavePlayer(src)
+                end,
+            },
+        }
+    end
+
+    WCore.Functions.GetPlayer = function(src)
+        return wrapPlayer(exports.w_lib:FwGetPlayerData(src), false)
+    end
+    WCore.Functions.GetPlayers = function()
+        return exports.w_lib:FwGetLoadedPlayers() or {}
+    end
+    WCore.Functions.GetWPlayers = function()
+        local out = {}
+        for src, pd in pairs(exports.w_lib:FwGetOnlinePlayers() or {}) do
+            local wrapped = wrapPlayer(pd, false)
+            if wrapped then out[src] = wrapped end
+        end
+        return out
+    end
+    WCore.Functions.GetOfflinePlayerByCitizenId = function(cid)
+        return wrapPlayer(exports.w_lib:FwGetOfflinePlayer(cid), true)
+    end
+    WCore.Functions.CreateCallback = function(name, cb)
+        w.callback.register(name, function(src, ...)
+            local p = promise.new()
+            cb(src, function(...)
+                p:resolve(table.pack(...))
+            end, ...)
+            local res = Citizen.Await(p)
+            return table.unpack(res, 1, res.n)
+        end)
+    end
+    WCore.Functions.CreateUseableItem = function(item, cb)
+        exports.w_lib:InvRegisterUsableItem(item, false, function(src, data)
+            cb(src, type(data) == 'table' and data or { name = item })
+        end)
+    end
+    WCore.Commands.Add = function(name, help, params, argsRequired, cb, perm)
+        return exports.w_lib:FwAddCommand(name, help, params, argsRequired, cb, perm)
+    end
+    w.callback.register('w_medic:hasItem', function(src, item, count)
+        if type(item) ~= 'string' or item == '' then return false end
+        local ok, n = pcall(function() return exports.w_lib:InvGetItemCount(src, item) end)
+        return ok and (tonumber(n) or 0) >= (tonumber(count) or 1)
+    end)
+else
+    WCore.Functions.GetPlayerData = function(cb)
+        local pd = exports.w_lib:FwGetPlayerData() or {}
+        if type(cb) == 'function' then cb(pd) end
+        return pd
+    end
+    WCore.Functions.HasItem = function(item, count)
+        if type(item) ~= 'string' or item == '' then return false end
+        local okInv, invName = pcall(function() return exports.w_lib:InvName() end)
+        if okInv and invName == 'vorp_inventory' then
+            local ok, has = pcall(w.callback.await, 'w_medic:hasItem', false, item, tonumber(count) or 1)
+            return ok and has == true
+        end
+        return exports.w_lib:InvHasItem(item, tonumber(count) or 1)
+    end
+    WCore.Functions.Notify = function(text, nType, duration)
+        local data = { type = NOTIFY_TYPES[nType or 'inform'] or 'inform', duration = tonumber(duration) or nil }
+        if type(text) == 'table' then
+            if text.caption then
+                data.title, data.description = text.text, text.caption
+            else
+                data.description = text.text or text.description
+            end
+        else
+            data.description = tostring(text or '')
+        end
+        pcall(w.notify, data)
+    end
+    WCore.Functions.Progressbar = function(_, label, duration, useWhileDead, canCancel, disable, animation, _, _, onFinish, onCancel)
+        disable = type(disable) == 'table' and disable or {}
+        animation = type(animation) == 'table' and animation or {}
+        local anim
+        if animation.animDict and animation.anim then
+            anim = { dict = animation.animDict, clip = animation.anim, flag = animation.flags or 49 }
+        elseif animation.task then
+            anim = { scenario = animation.task }
+        end
+        CreateThread(function()
+            local ok, done = pcall(w.progressBar, {
+                label = label,
+                duration = tonumber(duration) or 3000,
+                position = 'bottom',
+                useWhileDead = useWhileDead == true,
+                canCancel = canCancel == true,
+                disable = {
+                    move = disable.disableMovement == true,
+                    car = disable.disableCarMovement == true or disable.disableVehicleMovement == true,
+                    mouse = disable.disableMouse == true,
+                    combat = disable.disableCombat == true,
+                },
+                anim = anim,
+            })
+            if ok and done then
+                if type(onFinish) == 'function' then onFinish() end
+            elseif type(onCancel) == 'function' then
+                onCancel()
+            end
+        end)
+    end
+    WCore.Functions.TriggerCallback = function(name, cb, ...)
+        local args = table.pack(...)
+        CreateThread(function()
+            local res = table.pack(w.callback.await(name, false, table.unpack(args, 1, args.n)))
+            if type(cb) == 'function' then
+                cb(table.unpack(res, 1, res.n))
+            end
+        end)
+    end
+    WCore.Functions.SpawnVehicle = function(model, cb, coords, networked)
+        if type(model) == 'table' then model = model.model end
+        local hash = type(model) == 'number' and model or joaat(tostring(model or 'chuckwagon000x'))
+        local ped = PlayerPedId()
+        coords = coords or GetEntityCoords(ped)
+        local heading = coords.w or GetEntityHeading(ped)
+        CreateThread(function()
+            if not IsModelInCdimage(hash) then
+                if type(cb) == 'function' then cb(nil) end
+                return
+            end
+            RequestModel(hash)
+            local deadline = GetGameTimer() + 10000
+            while not HasModelLoaded(hash) and GetGameTimer() < deadline do Wait(50) end
+            if not HasModelLoaded(hash) then
+                if type(cb) == 'function' then cb(nil) end
+                return
+            end
+            local veh = CreateVehicle(hash, coords.x, coords.y, coords.z, heading, networked ~= false, false, false, false)
+            SetModelAsNoLongerNeeded(hash)
+            if veh and veh ~= 0 then
+                SetEntityAsMissionEntity(veh, true, true)
+                SetVehicleOnGroundProperly(veh)
+            end
+            if type(cb) == 'function' then cb(veh ~= 0 and veh or nil) end
+        end)
+    end
+    WCore.Functions.DeleteVehicle = function(vehicle)
+        if not vehicle or vehicle == 0 or not DoesEntityExist(vehicle) then return end
+        SetEntityAsMissionEntity(vehicle, true, true)
+        DeleteVehicle(vehicle)
+        if DoesEntityExist(vehicle) then DeleteEntity(vehicle) end
+    end
+end

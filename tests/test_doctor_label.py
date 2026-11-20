@@ -55,6 +55,8 @@ def run_checks():
       FwGetJobLabel = function(_, s) return CHARS[s].label end,
       FwSetJobLabel = function(_, s, l) CHARS[s].label = l SETS[#SETS + 1] = s return true end,
       FwGetCharacterIdentifier = function(_, s) return 100 + s end,
+      FwOnCharacterLoaded = function(_, f) HANDLERS['vorp:SelectedCharacter'] = f end,
+      FwOnJobUpdate = function(_, f) HANDLERS['vorp:playerJobChange'] = f; HANDLERS['vorp:playerJobGradeChange'] = f end,
       IsAdmin = function() return false end,
     } }
     -- the jobs centre that shares this part of server/main.lua

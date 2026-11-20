@@ -12,7 +12,6 @@ shared_scripts {
 }
 
 client_scripts {
-	'c/wcore_shim.lua',        -- the Wraith Core client API on VORP / RSG / QBR (through w_lib): before the job's files
 	'client/main.lua',
 	'client/wounding.lua',
 	'client/laststand.lua',
@@ -23,7 +22,6 @@ client_scripts {
 
 server_scripts {
 	'@oxmysql/lib/MySQL.lua',
-	'server/wcore_shim.lua',   -- the Wraith Core server API on VORP / RSG / QBR (through w_lib): before main.lua
 	'server/main.lua'
 }
 

@@ -76,10 +76,33 @@ def run_checks():
           FwGetJobLabel = function(_, s) return p(s) and p(s).label end,
           FwGetFirstName = function(_, s) return p(s).first end,
           FwGetLastName = function(_, s) return p(s).last end,
-          FwSetJob = function(_, s, j, g) p(s).job, p(s).grade = j, g return true end,
+          FwName = function() return 'vorp' end,
+          FwSetJob = function(_, s, j, g)
+            local oldJ, oldG = p(s).job, p(s).grade
+            p(s).job, p(s).grade = j, g
+            TriggerEvent('vorp:playerJobChange', s, j, oldJ)
+            TriggerEvent('vorp:playerJobGradeChange', s, g, oldG)
+            return true
+          end,
           FwSetJobLabel = function(_, s, l) p(s).label = l return true end,
           FwSetPlayerJobOffline = function(_, ident, cid, j, g, l) OFFLINE[#OFFLINE + 1] = { 'set', cid, j, g, l } DB[cid].job, DB[cid].jobgrade = j, g return true end,
           FwRemoveJobOffline = function(_, cid) OFFLINE[#OFFLINE + 1] = { 'remove', cid } DB[cid].job = 'unemployed' return true end,
+          FwOnCharacterLoaded = function(_, f) HANDLERS['vorp:SelectedCharacter'] = f end,
+          FwOnJobUpdate = function(_, f) HANDLERS['vorp:playerJobChange'] = f; HANDLERS['vorp:playerJobGradeChange'] = f end,
+          FwCharacterRows = function(_, field, val)
+            local t = {}
+            if field == 'citizenid' then
+              local r = DB[tonumber(val)]
+              if r then t[1] = { charidentifier = tonumber(val), identifier = r.identifier, firstname = r.firstname, lastname = r.lastname, job = r.job, jobgrade = r.jobgrade } end
+              return t
+            end
+            for cid, r in pairs(DB) do
+              if r.job == val then
+                t[#t + 1] = { charidentifier = cid, identifier = r.identifier, firstname = r.firstname, lastname = r.lastname, job = r.job, jobgrade = r.jobgrade }
+              end
+            end
+            return t
+          end,
           IsAdmin = function(_, s) return p(s) and p(s).admin == true end,
         }
         exports = { w_lib = setmetatable({}, { __index = function(_, k) return fw[k] end }) }

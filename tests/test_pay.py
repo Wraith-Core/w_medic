@@ -15,7 +15,12 @@ function GetGameTimer() return NOW end
 function GetResourceState() return BANK and 'started' or 'missing' end
 exports={w_centralbank={IsReady=function() return true end,EnsureAccount=function() return true end,
 Transfer=function(_,from,to,amount,key) T[#T+1]={from=from,to=to,amount=amount,key=key};return true end},
-w_lib={FwAddCurrency=function() return false end}}
+w_lib={
+EconName=function() return BANK and 'w_centralbank' or 'framework' end,
+EconIsReady=function() return BANK end,
+EconEnsureAccount=function() return BANK end,
+EconTransfer=function(_,from,to,amount,reason,key) if not BANK then return false end T[#T+1]={from=from,to=to,amount=amount,reason=reason,key=key or reason};return true end,
+FwAddCurrency=function() return false end}}
 w={notify=function(src,data) NOTES[#NOTES+1]={src=src,data=data} end}
 ''')
         self.lua.execute(PAY + '\nTEST_PAY=payDoctor')
