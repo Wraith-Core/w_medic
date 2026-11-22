@@ -1,60 +1,29 @@
 # w_medic
 
-## 1.0.7 (2026-11-01) — رسائل الرفض تقول السبب
+Doctor and hospital roleplay job (`doctor`, grades `0`–`5`) for **Wraith Framework RedM**.
 
-- الإسعاف الأولي: بدل «لا يمكنك مساعدة هذا الشخص» يقول السبب: «هذا الشخص ليس مصابًا» أو «فاقد للوعي، يحتاج إنعاشًا لا إسعافًا»،
-  وبدل «لا يمكن تنفيذ هذا الإجراء» عند اقتياد شخص: «اتركه أولًا». ولا أحد قريب منك: «لا يوجد لاعب قريب».
-- مكتب الاستقبال والسرير: إذا كان طبيب في الدوام يصل المريض «تم إبلاغ الأطباء» بدل الصمت.
+## Key Features
 
-## 1.0.6 — صلاحيات الموقع داخل اللعبة
+- Wounding, bleeding, last-stand, death timer, hospital beds, treatment, and revives (integrated with `w_creators:Resurrect`).
+- Built-in Hospital Pharmacy powered directly by `w_inventory:RegisterShop` (bandages, painkillers, first-aid kits with automatic restock cycles).
+- On-site doctor hiring/ranking terminal at hospital desks.
+- Emergency alert command (`/911e`) for on-duty doctors.
 
-تدعم أدوات الإدارة صلاحيات السكربت الممنوحة من الموقع، دون منح الإداري صلاحيات عامة على بقية السكربتات. تبقى صلاحيات المالك والرتب والإعدادات المحمية كما هي.
+## Installation
 
-يلزم التحقق داخل اللعبة من فتح الأدوات الممنوحة ورفض الأدوات غير الممنوحة وسحب الوصول بعد إلغاء الرتبة.
+1. Place `w_medic` in `resources/[wraith]/w_medic`.
+2. Add `ensure w_medic` to `server.cfg` after `w_lib`, `w_core`, `w_inventory`, and `w_creators`.
 
+## Commands & Exports
 
-## 1.0.5 (2026-10-30)
+- **Commands:** `/911e`, `/treat`, `/status`, `/medrevive`, `/revivep`, `/aheal`, `/kill`, `/pharmacy`
+- **Exports:** `IsDead()`, `InHospitalBed()`, `RevivePlayer(src)`, `HealPlayer(src)`, `EndBedStay()`
 
-- النداءات الطبية محدودة وواضحة وتصل إلى الأطباء في العالم نفسه فقط.
-- بيانات الجروح غير الصالحة لا تعطل فحص حالة المريض.
-- توظيف الطبيب برقم المواطن، مع عرض اسم الشخص والرتبة قبل التأكيد.
-- اختبار داخل اللعبة: افحص مريضًا، وأرسل نداءً طبيًا، ثم ألغِ تعيين طبيب بعد ظهور اسمه وتأكد من عدم تغيير وظيفته.
+## Documentation & Links
 
-Doctor job, wounds, bleeding, last stand and death handling for the Wraith Core server.
+- **Developer Docs:** https://wraith-core.github.io/docs/#/resources/economy-jobs
+- **txAdmin Recipe:** https://github.com/Wraith-Core/txAdminRecipe
 
-1.0.3: أماكن عيادات التجميل تأتي من لوحة w_creators (`/servicesadmin`): إذا نقل الإداري عيادة أو أضافها أو حذفها، يتغيّر زر العملية في المستشفى معها مباشرة.
+## License
 
-1.0.2: الخبرة من جدول `w_level`: الطبيب يكسب عند إنعاش مصاب كان على الأرض فعلًا (`doctor_revive`) وعند علاج الجروح (`doctor_treat`)، والمريض الذي أنعشه طبيب يكسب قليلًا (`revived_by_doctor`)، ومن مات وذهب للمستشفى يُخصم منه قليلًا (`death`) دون أن ينزل مستواه. نفس المريض لا يُحسب للطبيب إلا بعد مدة.
-
-1.0.1: مفتاح فحص المريض والخروج من السرير والظهور في المستشفى بعد الموت صار J بدل E (لأن E يمسك اللاعب القريب).
-
-## Dependencies
-- w_lib (`[standalone]/w_lib`) — loaded first (`@w_lib/init.lua`), provides the dictionary, notifications, NUI prompts, on-screen text, blips, streaming helpers
-- w_core — core object, callbacks, commands
-- oxmysql
-
-## Language
-The library controls the language: `setr w_lib:locale "ar"` in server.cfg is the default and a player may switch in `/w_lib`.
-The resource ships `locales/en.json` and `locales/ar.json` only; every player-facing string comes from them and the
-client rebuilds prompt labels and station blips on `w_lib:setLocale`.
-
-## Interaction
-Every button is a library NUI prompt (w_lib):
-- Stations (armory, duty, wagon yard, stash, check-in, beds) are `w.prompt.at` proximity prompts on `Config.PromptKey`
-  within `Config.PromptDistance`; the doctor-only ones are hidden from other jobs (`canInteract`).
-- A doctor standing next to a player gets a `w.prompt.atEntity` group on that player: `Config.PatientKeys`
-  (check the patient, hold to treat the wounds with a bandage, hold to revive with a first aid kit).
-- In a hospital bed a prompt group offers `J` to get out once the treatment is over.
-- Dead / last stand: a prompt group carries the countdown as its title; `J` respawns at the hospital once the timer
-  ran out, `G` calls a doctor while help is still possible.
-The wagon yard spawns the wagons listed in `Config.AuthorizedVehicles` (RDR2 wagon models, per job grade).
-
-## Wounds
-Damage is classed by the weapon that caused it (`Config.Weapons`, RDR2 weapon hashes) and by the bone hit
-(`Config.Bones`, RDR2 skeleton ids). Wounds cause limps, bleeding and blackouts; bandages, painkillers and
-first aid kits treat them. There is no body armour in this game, so damage is always taken on health.
-
-## Commands
-- `/911e [message]` — alert the doctors on duty
-- `/status`, `/treat`, `/revivep` — doctor tools
-- `/medrevive [id]`, `/setpain [id]`, `/kill [id]`, `/aheal [id]` — admin
+GPL-3.0 — see [LICENSE](LICENSE).
