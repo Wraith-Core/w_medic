@@ -35,6 +35,6 @@ w_lib {
 }
 
 -- w_lib provides the dictionary. w_core too: its core object is fetched at load
--- (w.framework:getCoreObject()). w_store is the pharmacy shelf: the cabinet is a real
--- government store row when it is running (see Config.Pharmacy.useStore and server/main.lua).
-dependencies { 'w_lib', 'w_store' }
+-- (w.framework:getCoreObject()). When w_store is running and Config.Pharmacy.useStore is true,
+-- the cabinet can use a w_store shelf; otherwise it uses w_inventory's built-in shop.
+dependencies { 'w_lib' }
